@@ -1,0 +1,132 @@
+name: Publish npm package and docs
+
+on:
+    push:
+        branches: main
+    workflow_dispatch: # Only for tests, to remove
+
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+permissions:
+    contents: read
+    pages: write
+    id-token: write
+
+# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
+# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
+concurrency:
+    group: 'pages'
+    cancel-in-progress: false
+
+jobs:
+    publish-npm-package:
+        runs-on: ubuntu-latest
+        outputs:
+            # The action JS-DevTools/npm-publish@v4 sets its output `type` to
+            # empty if nothing was published, we use that to trigger the deployment
+            # of pages conditionnaly
+            npm-publish-type: ${{ steps.publish-npm.outputs.type }}
+        steps:
+            - uses: actions/checkout@v5
+
+            - name: Install node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 'latest'
+                  cache: 'npm'
+
+            - name: Cache node modules
+              id: cache-nodemodules
+              uses: actions/cache@v4
+              env:
+                  cache-name: cache-node-modules
+              with:
+                  # caching node_modules
+                  path: node_modules
+                  key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
+                  restore-keys: |
+                      ${{ runner.os }}-build-${{ env.cache-name }}-
+                      ${{ runner.os }}-build-
+                      ${{ runner.os }}-
+
+            - name: Install Dependencies
+              if: steps.cache-nodemodules.outputs.cache-hit != 'true'
+              run: npm ci
+
+            - name: Check lint
+              run: npm run check
+
+            - name: Check prettier
+              run: npm run prettier
+
+            - name: Generate tests report
+              run: npm run tests:ci
+
+            - name: Convert junit test report to ctrf
+              # node test runner produces junit results we need to convert
+              # them for ctrf to publish a comment in the MR
+              run: npx junit-to-ctrf tests_results.xml
+              if: always()
+
+            - name: Publish CTRF pull request comment
+              run: npx github-actions-ctrf ctrf/ctrf-report.json
+              if: always()
+
+            - name: Run build package and docs
+              run: npm run build
+
+            # Publish npm package (the action triggers the publish only if
+            # the version changed in package.json)
+            # TODO: Use trusted publishing instead https://docs.npmjs.com/trusted-publishers
+            - uses: JS-DevTools/npm-publish@v4
+              id: publish-npm
+              with:
+                  token: ${{ secrets.NPM_TOKEN }}
+
+    publish-docs-pages:
+        needs: publish-npm-package
+        # Only update the docs if we published a package
+        if: needs.publish-npm-package.outputs.npm-publish-type != ''
+        environment:
+            name: github-pages
+
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v5
+
+            - name: Install node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 'latest'
+                  cache: 'npm'
+
+            - name: Cache node modules
+              id: cache-nodemodules
+              uses: actions/cache@v4
+              env:
+                  cache-name: cache-node-modules
+              with:
+                  # caching node_modules
+                  path: node_modules
+                  key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
+                  restore-keys: |
+                      ${{ runner.os }}-build-${{ env.cache-name }}-
+                      ${{ runner.os }}-build-
+                      ${{ runner.os }}-
+
+            - name: Install Dependencies
+              if: steps.cache-nodemodules.outputs.cache-hit != 'true'
+              run: npm ci
+
+            - name: Run build package and docs
+              run: npm run build:doc
+
+            - name: Setup Pages
+              uses: actions/configure-pages@v5
+            - name: Upload artifact
+              uses: actions/upload-pages-artifact@v4
+              with:
+                  # Upload entire repository
+                  path: 'docs'
+            - name: Deploy to GitHub Pages
+              id: deployment
+              uses: actions/deploy-pages@v4

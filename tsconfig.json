@@ -1,0 +1,15 @@
+{
+    "compilerOptions": {
+        "target": "esnext",
+        "module": "nodenext",
+        "declaration": true,
+        "emitDeclarationOnly": true,
+        "declarationDir": "dist/types",
+        "rewriteRelativeImportExtensions": true,
+        "erasableSyntaxOnly": true,
+        "verbatimModuleSyntax": true,
+        "outDir": "dist"
+    },
+    "exclude": ["tests/**/*"],
+    "include": ["src/**/*", "index.ts"]
+}

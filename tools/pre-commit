@@ -1,0 +1,28 @@
+#!/bin/sh
+
+# Pre-commit hook to run prettier and eslint locally.
+# Install by copying this file to `.git/hooks/pre-commit`
+#
+# To run the checks only on `git add`ed files we use `git diff` but
+# then we need to pass the result without quoting which is not best
+# practice.
+# I didn't like recommended approached like 
+#   echo "$FILES" | xargs ./node_modules/.bin/eslint
+# because it didn't allow to exit this script with non-zero exit code
+# TODO Maybe find a better way to do this.
+
+FILES=$(git diff --cached --name-only --diff-filter=ACMR | tr '\n' ' ')
+[ -z "$FILES" ] && exit 0
+
+echo 'Running checks. Use `git commit -n` to skip checks'
+
+echo 'Prettier...'
+./node_modules/.bin/prettier --ignore-unknown --write $FILES
+
+echo 'ESLint...'
+./node_modules/.bin/eslint --quiet --fix $FILES || exit 1
+
+# Add back the modified/prettified files to staging
+git add $FILES
+
+exit 0
