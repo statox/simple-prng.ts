@@ -1,6 +1,6 @@
 {
     "name": "simple-prng",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "description": "A Pseudo Random Number Generator library",
     "main": "dist/simple-prng.umd.js",
     "types": "dist/types/index.d.ts",
