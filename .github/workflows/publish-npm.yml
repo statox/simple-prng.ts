@@ -26,7 +26,7 @@ jobs:
             # of pages conditionnaly
             npm-publish-type: ${{ steps.publish-npm.outputs.type }}
         steps:
-            - uses: actions/checkout@v5
+            - uses: actions/checkout@v6
 
             - name: Install node.js
               uses: actions/setup-node@v4
@@ -91,7 +91,7 @@ jobs:
 
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v5
+            - uses: actions/checkout@v6
 
             - name: Install node.js
               uses: actions/setup-node@v4
